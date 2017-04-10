@@ -1,0 +1,25 @@
+{
+	"command.clone": "Clone",
+
+	"config.enabled": "Whether Mercurial is enabled",
+
+	"out.mercurialVer": "Using Mercurial {0} from {1}",
+	
+	"hgprompt.username": "User name",
+	"hgprompt.password": "Password",
+
+	"status.cloning": "Cloning Mercurial repository...",
+
+	"msg.recommendedVersion": "You seem to have Mercurial {0} installed. The plugin works best with Mercurial >= 4.0.0",
+	"msg.recommendedVersionChoiceUpdate": "Update Mercurial",
+	"msg.commandErrorChoiceOpenLog": "Open Mercurial Log",
+	"msg.commandError": "Error when calling {0}",
+	"msg.openCloned": "Would you like to open the cloned repository?",
+	"msg.openClonedChoiceOpen": "Open Repository",
+
+	"prompt.repositoryUrl": "Repository URL",
+	"prompt.targetDirectory": "Target Directory",
+
+	"err.noRepoUrl": "Repository URL not specified",
+	"err.noTargetDirectory": "Target folder not specified"
+}
