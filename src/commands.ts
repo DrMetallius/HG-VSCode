@@ -7,16 +7,18 @@ import * as cp from 'child_process';
 import { window, Uri, commands, Disposable, OutputChannel } from "vscode";
 import { HgError, CommandServer } from "./command_server";
 import { mkdirs, DisposableLike } from "./util";
+import { Model } from "./model";
 
 const localize = nls.loadMessageBundle();
 
 export class CommandCenter implements DisposableLike {
 	private disposables: Disposable[] = [];
 	private commandIdMap: Map<(...args: any[]) => Promise<any>, string> = new Map([
-		[this.clone, "hg.clone"]
+		[this.clone, "hg.clone"],
+		[this.init, "hg.init"]
 	]);
-    
-    constructor(private commandServer: CommandServer, private outputChannel: OutputChannel) {
+	
+	constructor(private commandServer: CommandServer, private model: Model, private outputChannel: OutputChannel) {
 		for (let [commandFunction, cmdId] of this.commandIdMap) {
 			const wrappedCommand = async (...args) => {
 				try {
@@ -63,8 +65,12 @@ export class CommandCenter implements DisposableLike {
 		const result = await window.showInformationMessage(localize('msg.openCloned', "Would you like to open the cloned repository?"), open);
 		if (result === open) commands.executeCommand('vscode.openFolder', Uri.file(destPath));
 	}
-    
+
+	private async init(): Promise<void> {
+		await this.model.init();
+	}
+
 	dispose(): void {
-		this.disposables.forEach(d => d.dispose());
+		this.disposables.forEach((disposable) => disposable.dispose());
 	}
 }

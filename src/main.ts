@@ -4,10 +4,11 @@ import * as nls from 'vscode-nls';
 import { ExtensionContext, Disposable, window, workspace, scm, commands, Uri, InputBoxOptions } from "vscode";
 import { findHgWin32, CommandServer } from "./command_server";
 import { CommandCenter } from "./commands";
+import { Model } from "./model";
 
 const localize = nls.config()();
 
-export function activate(context: ExtensionContext): any {
+export function activate(context: ExtensionContext): any { //TODO: update line endings and whitespace
 	const disposables: Disposable[] = [];
 	context.subscriptions.push(new Disposable(() => Disposable.from(...disposables).dispose()));
 
@@ -41,9 +42,10 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 		const result = await window.showInputBox(options);
 		return result || '';
 	});
-	const commandCenter = new CommandCenter(commandServer, outputChannel);
+	const model = new Model(commandServer);
+	const commandCenter = new CommandCenter(commandServer, model, outputChannel);
 	const sourceControl = scm.createSourceControl('hg', 'Mercurial');
-	disposables.push(commandServer, commandCenter, sourceControl);
+	disposables.push(commandServer, commandCenter, model, sourceControl);
 
 	const result = /^(\d)\./.exec(info.version);
 	if (!result || parseInt(result[1]) < 4) {

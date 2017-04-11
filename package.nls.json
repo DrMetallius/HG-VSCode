@@ -1,5 +1,6 @@
 {
 	"command.clone": "Clone",
+	"command.init": "Initialize Repository",
 
 	"config.enabled": "Whether Mercurial is enabled",
 

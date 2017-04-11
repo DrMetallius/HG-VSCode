@@ -25,6 +25,15 @@
 				"command": "hg.clone",
 				"title": "%command.clone%",
 				"category": "Hg"
+			},
+			{
+				"command": "hg.init",
+				"title": "%command.init%",
+				"category": "Hg",
+				"icon": {
+					"light": "resources/icons/light/hg.svg",
+					"dark": "resources/icons/dark/hg.svg"
+				}
 			}
 		],
 		"menus": {
@@ -32,6 +41,17 @@
 				{
 					"command": "hg.clone",
 					"when": "config.hg.enabled"
+				},
+				{
+					"command": "hg.init",
+					"when": "config.hg.enabled && scmProvider == hg && hgState == norepo"
+				}
+			],
+			"scm/title": [
+				{
+					"command": "hg.init",
+					"group": "navigation",
+					"when": "config.hg.enabled && scmProvider == hg && hgState == norepo"
 				}
 			]
 		},
@@ -50,8 +70,8 @@
 		"vscode-nls": "^2.0.2"
 	},
 	"devDependencies": {
-        "typescript": "^2.2.2",
-        "vscode": "^1.1.0",
-        "@types/node": "^7.0.12"
+		"typescript": "^2.2.2",
+		"vscode": "^1.1.0",
+		"@types/node": "^7.0.12"
 	}
 }
