@@ -235,6 +235,14 @@ export class CommandServer implements DisposableLike {
 		}
 	}
 
+	async init(): Promise<void> {
+		await this.exec('init');
+	}
+
+	async status(): Promise<void> {
+		await this.exec('status');
+	}
+
 	dispose(): void {
 		this.hg.stdin.end();
 	}
