@@ -2,43 +2,96 @@
 
 import * as nls from 'vscode-nls';
 import { CommandServer } from "./command_server";
-import { commands, window, workspace, EventEmitter, Disposable } from "vscode";
+import { commands, window, workspace, EventEmitter, Disposable, QuickDiffProvider, Uri, ProviderResult } from "vscode";
 import { DisposableLike } from "./util";
+import * as path from 'path';
+import { DocumentProvider } from "./document_provider";
 
 const localize = nls.loadMessageBundle();
 
-export class Model implements DisposableLike {
+export class Model implements DisposableLike, QuickDiffProvider {
+	private root: string;
+	private readonly documentProvider: DocumentProvider = new DocumentProvider(this);
+
 	private _repoState: RepoState = RepoState.NoRepo;
 	private readonly repoStateChangeEmitter: EventEmitter<RepoState> = new EventEmitter();
 
+	private changeWatcher: NodeJS.Timer | null;
+	private lastRetrievedRevision: string;
+
 	private disposables: Disposable[] = [];
+
+	private static readonly EXTERNAL_CHANGE_CHECK_INTERVAL = 1000 * 10;
 
 	constructor(private commandServer: CommandServer) {
 		if (workspace.rootPath) {
 			commandServer.directory = workspace.rootPath;
-			process.nextTick(async () => {
-				try {
-					await commandServer.status();
-					this.repoState = RepoState.Present;
-				} catch (err) {
-					this.repoState = RepoState.NoRepo;
-				}
-			});
+			setImmediate(this.updateRepoState.bind(this));
 		}
 
-		this.repoStateChangeEmitter.event(() => {
+		const providerDisposable = workspace.registerTextDocumentContentProvider(DocumentProvider.URI_SCHEME, this.documentProvider);
+		const changeStateDisposable = this.repoStateChangeEmitter.event(() => {
 			commands.executeCommand('setContext', 'hgState', REPO_STATE_IDS.get(this._repoState));
 		});
+		this.disposables.push(providerDisposable, changeStateDisposable);
 	}
 
-	async init() {
+	async init(): Promise<void> {
 		await this.commandServer.init();
 		this.repoState = RepoState.Present;
 	}
 
+	async cat(fsPath: string): Promise<string> {
+		if (!this.root) return "";
+
+		const relativePath = path.relative(this.root, fsPath);
+		return await this.commandServer.cat(fsPath);
+	}
+
+	private async updateRepoState(): Promise<void> {
+		try {
+			await this.commandServer.status();
+			this.root = await this.commandServer.root();
+			this.repoState = RepoState.Present;
+		} catch (err) {
+			this.repoState = RepoState.NoRepo;
+		}
+	}
+
+	private async checkRevision(): Promise<void> {
+		try {
+			const identifyResult = await this.commandServer.identify();
+			const [revision] = identifyResult.split(" ", 2);
+			if (this.lastRetrievedRevision != revision) {
+				this.documentProvider.fireChangeEvents();
+				this.lastRetrievedRevision = revision;
+			}
+		} catch (err) {
+			this.updateRepoState();
+		}
+	}
+
 	private set repoState(repoState: RepoState) {
+		if (repoState == this._repoState) return;
+
+		switch (repoState) {
+			case RepoState.NoRepo:
+				if (this.changeWatcher) {
+					clearInterval(this.changeWatcher);
+					this.changeWatcher = null;
+				}
+				break;
+			case RepoState.Present:
+				if (!this.changeWatcher) this.changeWatcher = setInterval(this.checkRevision.bind(this), Model.EXTERNAL_CHANGE_CHECK_INTERVAL);
+				break;
+		}
+
 		this._repoState = repoState;
 		this.repoStateChangeEmitter.fire(repoState);
+	}
+
+	provideOriginalResource(uri: Uri): ProviderResult<Uri> {
+		return uri.scheme != 'file' ? undefined : DocumentProvider.toHgUri(uri);
 	}
 
 	dispose(): void {

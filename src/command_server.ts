@@ -5,7 +5,7 @@ import * as cp from 'child_process';
 import { EventEmitter, InputBoxOptions, window } from "vscode";
 import { dirname } from "path";
 import * as fs from 'fs';
-import { DisposableLike, mkdirs } from "./util";
+import { DisposableLike, mkdirs, trimTrailingNewLine } from "./util";
 import { ChildProcess } from "child_process";
 
 export class HgProperties {
@@ -133,7 +133,7 @@ export class CommandServer implements DisposableLike {
 		});
 	}
 
-	private async exec(command: string, ...args: string[]): Promise<void> {
+	private async exec(command: string, ...args: string[]): Promise<string> {
 		if (!this.started) {
 			await this.start();
 			this.started = true;
@@ -158,6 +158,7 @@ export class CommandServer implements DisposableLike {
 
 		this.hg.stdin.write(buf);
 
+		let stdout = "";
 		let output = "";
 		return new Promise<number>((resolve, reject) => {
 			const dataListener = async (data) => {
@@ -166,6 +167,7 @@ export class CommandServer implements DisposableLike {
 					if (message instanceof OutputMessage) {
 						this.outputReceiver(message.channelType, message.data);
 
+						if (message.channelType == ChannelType.Output) stdout += message.data;
 						if (message.channelType != ChannelType.Debug) output += message.data;
 					} else if (message instanceof ResultMessage) {
 						this.hg.stdout.removeListener('data', dataListener);
@@ -191,6 +193,8 @@ export class CommandServer implements DisposableLike {
 			if (returnCode != 0) {
 				const message = this.getLastLineFromOutput(output);
 				throw new HgError({ returnCode, command, message });
+			} else {
+				return stdout;
 			}
 		}, (error) => {
 			throw new HgError({ error, command });
@@ -241,6 +245,18 @@ export class CommandServer implements DisposableLike {
 
 	async status(): Promise<void> {
 		await this.exec('status');
+	}
+
+	async root(): Promise<string> {
+		return trimTrailingNewLine(await this.exec('root'));
+	}
+
+	async cat(file: string): Promise<string> {
+		return await this.exec('cat', file);
+	}
+
+	async identify(): Promise<string> {
+		return trimTrailingNewLine(await this.exec('identify'));
 	}
 
 	dispose(): void {
