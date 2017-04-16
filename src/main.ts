@@ -16,7 +16,7 @@ export function activate(context: ExtensionContext): any { //TODO: update line e
 		.catch(err => console.error(err));
 }
 
-async function init(context: ExtensionContext, disposables: Disposable[]): Promise<void> {
+async function init(context: ExtensionContext, disposables: Disposable[]): Promise<void> { //TODO: races in server, commit, status, pull, push, revert, branch switching
 	const config = workspace.getConfiguration('hg');
 	const enabled = config.get<boolean>('enabled') === true;
 	if (!enabled) return;
@@ -44,7 +44,10 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 	});
 	const model = new Model(commandServer);
 	const commandCenter = new CommandCenter(commandServer, model, outputChannel);
+
 	const sourceControl = scm.createSourceControl('hg', 'Mercurial');
+	sourceControl.quickDiffProvider = model;
+
 	disposables.push(commandServer, commandCenter, model, sourceControl);
 
 	const result = /^(\d)\./.exec(info.version);

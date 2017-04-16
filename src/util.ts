@@ -44,3 +44,7 @@ export async function mkdirs(path: string, mode?: number): Promise<void> {
 		await mkdir(path, mode);
 	}
 }
+
+export function trimTrailingNewLine(str: string) {
+	return !str.endsWith("\n") ? str : str.substring(0, str.length - 1);
+}
