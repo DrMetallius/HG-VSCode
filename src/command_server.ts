@@ -48,6 +48,9 @@ export class CommandServer implements DisposableLike {
 	private readonly hg: ChildProcess;
 	private started: boolean;
 
+	private commandExecutionInProgress: boolean;
+	private commandQueue = new Array<ScheduledCommand>();
+
 	directory: string;
 
 	private static readonly ENCODING = "UTF-8";
@@ -133,11 +136,27 @@ export class CommandServer implements DisposableLike {
 		});
 	}
 
-	private async exec(command: string, ...args: string[]): Promise<string> {
+	private scheduleCommand(command: string, ...args: string[]): Promise<string> {
+		return new Promise((resolve, reject) => {
+			this.commandQueue.push({resolve, reject, command, args});
+			if (!this.commandExecutionInProgress) this.executeNextCommand();
+		});
+	}
+
+	private async executeNextCommand(): Promise<void> {
+		if (this.commandExecutionInProgress) throw new Error("Another command is already executing");
+
+		let scheduledCommand = this.commandQueue.shift();
+		if (!scheduledCommand) throw new Error("No scheduled commands");
+
+		this.commandExecutionInProgress = true;
+
 		if (!this.started) {
 			await this.start();
 			this.started = true;
 		}
+
+		let {resolve: resolveCommand, reject: rejectCommand, command, args} = scheduledCommand;
 
 		const extendedArgs = args;
 		if (this.directory) extendedArgs.unshift("--cwd", this.directory);
@@ -157,6 +176,11 @@ export class CommandServer implements DisposableLike {
 		buf.write(packedServerCommandArgs, serverCommandLength + 4);
 
 		this.hg.stdin.write(buf);
+
+		let finishAndScheduleNext = () => {
+			this.commandExecutionInProgress = false;
+			if (this.commandQueue.length > 0) this.executeNextCommand();
+		};
 
 		let stdout = "";
 		let output = "";
@@ -190,14 +214,17 @@ export class CommandServer implements DisposableLike {
 			};
 			this.hg.stdout.on('data', dataListener);
 		}).then((returnCode) => {
+			setImmediate(finishAndScheduleNext);
+
 			if (returnCode != 0) {
 				const message = this.getLastLineFromOutput(output);
-				throw new HgError({ returnCode, command, message });
+				rejectCommand(new HgError({ returnCode, command, message }));
 			} else {
-				return stdout;
+				resolveCommand(stdout);
 			}
 		}, (error) => {
-			throw new HgError({ error, command });
+			setImmediate(finishAndScheduleNext);
+			rejectCommand(new HgError({ error, command }));
 		});
 	}
 
@@ -233,30 +260,30 @@ export class CommandServer implements DisposableLike {
 	async clone(url: string, destPath?: string): Promise<void> {
 		if (destPath) {
 			await mkdirs(destPath);
-			await this.exec('clone', url, destPath);
+			await this.scheduleCommand('clone', url, destPath);
 		} else {
-			await this.exec('clone', url);
+			await this.scheduleCommand('clone', url);
 		}
 	}
 
 	async init(): Promise<void> {
-		await this.exec('init');
+		await this.scheduleCommand('init');
 	}
 
 	async status(): Promise<void> {
-		await this.exec('status');
+		await this.scheduleCommand('status');
 	}
 
 	async root(): Promise<string> {
-		return trimTrailingNewLine(await this.exec('root'));
+		return trimTrailingNewLine(await this.scheduleCommand('root'));
 	}
 
 	async cat(file: string): Promise<string> {
-		return await this.exec('cat', file);
+		return await this.scheduleCommand('cat', file);
 	}
 
 	async identify(): Promise<string> {
-		return trimTrailingNewLine(await this.exec('identify'));
+		return trimTrailingNewLine(await this.scheduleCommand('identify'));
 	}
 
 	dispose(): void {
@@ -294,6 +321,13 @@ class ResultMessage {
 
 class InputRequestMessage {
 	constructor(readonly dataLength: number) { }
+}
+
+class ScheduledCommand {
+	resolve: Function;
+	reject: Function;
+	command: string;
+	args: string[];
 }
 
 interface HgErrorData {
