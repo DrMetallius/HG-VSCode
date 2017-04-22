@@ -35,7 +35,9 @@ export class DocumentProvider implements TextDocumentContentProvider {
 	}
 
 	fireChangeEvents(): void {
-		Object.keys(this.cache).forEach(key => this.onDidChangeEmitter.fire(this.cache[key].uri));
+		for (const [_, value] of this.cache) {
+			this.onDidChangeEmitter.fire(value.uri);
+		}
 	}
 
 	async provideTextDocumentContent(uri: Uri): Promise<string> {
