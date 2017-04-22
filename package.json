@@ -34,6 +34,11 @@
 					"light": "resources/icons/light/hg.svg",
 					"dark": "resources/icons/dark/hg.svg"
 				}
+			},
+			{
+				"command": "hg.commit",
+				"title": "%command.commit%",
+				"category": "Hg"
 			}
 		],
 		"menus": {
@@ -45,6 +50,10 @@
 				{
 					"command": "hg.init",
 					"when": "config.hg.enabled && scmProvider == hg && hgState == norepo"
+				},
+				{
+					"command": "hg.commit",
+					"when": "config.hg.enabled && scmProvider == hg && hgState == present"
 				}
 			],
 			"scm/title": [
