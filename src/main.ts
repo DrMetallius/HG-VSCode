@@ -16,7 +16,7 @@ export function activate(context: ExtensionContext): any { //TODO: update line e
 		.catch(err => console.error(err));
 }
 
-async function init(context: ExtensionContext, disposables: Disposable[]): Promise<void> { //TODO: races in server, commit, status, pull, push, revert, branch switching
+async function init(context: ExtensionContext, disposables: Disposable[]): Promise<void> { //TODO: partial commit, status, pull, push, revert, branch switching
 	const config = workspace.getConfiguration('hg');
 	const enabled = config.get<boolean>('enabled') === true;
 	if (!enabled) return;
@@ -47,6 +47,7 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 
 	const sourceControl = scm.createSourceControl('hg', 'Mercurial');
 	sourceControl.quickDiffProvider = model;
+	sourceControl.acceptInputCommand = {title: localize("command.commit", "Commit Changes"), command: "hg.commit"};
 
 	disposables.push(commandServer, commandCenter, model, sourceControl);
 

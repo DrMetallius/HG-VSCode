@@ -1,6 +1,7 @@
 {
 	"command.clone": "Clone",
 	"command.init": "Initialize Repository",
+	"command.commit": "Commit Changes",
 
 	"config.enabled": "Whether Mercurial is enabled",
 
@@ -20,7 +21,9 @@
 
 	"prompt.repositoryUrl": "Repository URL",
 	"prompt.targetDirectory": "Target Directory",
+	"prompt.commitMessage": "Commit Message",
 
 	"err.noRepoUrl": "Repository URL not specified",
-	"err.noTargetDirectory": "Target folder not specified"
+	"err.noTargetDirectory": "Target folder not specified",
+	"err.noCommitMessage": "Please enter a commit message"
 }

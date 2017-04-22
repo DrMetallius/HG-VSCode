@@ -2,7 +2,7 @@
 
 import * as nls from 'vscode-nls';
 import { CommandServer } from "./command_server";
-import { commands, window, workspace, EventEmitter, Disposable, QuickDiffProvider, Uri, ProviderResult } from "vscode";
+import { commands, window, workspace, EventEmitter, Disposable, QuickDiffProvider, Uri, ProviderResult, scm } from "vscode";
 import { DisposableLike } from "./util";
 import * as path from 'path';
 import { DocumentProvider } from "./document_provider";
@@ -46,6 +46,11 @@ export class Model implements DisposableLike, QuickDiffProvider {
 
 		const relativePath = path.relative(this.root, fsPath);
 		return await this.commandServer.cat(fsPath);
+	}
+
+	async commit(message: string): Promise<void> {
+		await this.commandServer.commit(message);
+		this.checkRevision();
 	}
 
 	private async updateRepoState(): Promise<void> {

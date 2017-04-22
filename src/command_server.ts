@@ -286,6 +286,10 @@ export class CommandServer implements DisposableLike {
 		return trimTrailingNewLine(await this.scheduleCommand('identify'));
 	}
 
+	async commit(message: string): Promise<void> {
+		await this.scheduleCommand('commit', '-m', message);
+	}
+
 	dispose(): void {
 		this.hg.stdin.end();
 	}

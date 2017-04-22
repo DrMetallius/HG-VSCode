@@ -4,7 +4,7 @@ import * as nls from 'vscode-nls';
 import * as os from 'os';
 import * as path from 'path';
 import * as cp from 'child_process';
-import { window, Uri, commands, Disposable, OutputChannel } from "vscode";
+import { window, Uri, commands, Disposable, OutputChannel, scm } from "vscode";
 import { HgError, CommandServer } from "./command_server";
 import { mkdirs, DisposableLike } from "./util";
 import { Model } from "./model";
@@ -15,7 +15,8 @@ export class CommandCenter implements DisposableLike {
 	private disposables: Disposable[] = [];
 	private commandIdMap: Map<(...args: any[]) => Promise<any>, string> = new Map([
 		[this.clone, "hg.clone"],
-		[this.init, "hg.init"]
+		[this.init, "hg.init"],
+		[this.commit, "hg.commit"]
 	]);
 	
 	constructor(private commandServer: CommandServer, private model: Model, private outputChannel: OutputChannel) {
@@ -68,6 +69,23 @@ export class CommandCenter implements DisposableLike {
 
 	private async init(): Promise<void> {
 		await this.model.init();
+	}
+
+	private async commit(): Promise<void> {
+		let message = scm.inputBox.value;
+		if (!message) {
+			const input = await window.showInputBox({
+				prompt: localize("prompt.commitMessage", "Commit Message"),
+				ignoreFocusOut: true
+			});
+			if (!input) throw new Error(localize("err.noCommitMessage", "Please enter a commit message"));
+
+			message = input;
+		}
+
+		window.visibleTextEditors.forEach(editor => editor.document.save());
+		await this.model.commit(message);
+		scm.inputBox.value = "";
 	}
 
 	dispose(): void {
