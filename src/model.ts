@@ -1,15 +1,15 @@
 'use strict';
 
 import * as nls from 'vscode-nls';
-import { CommandServer } from "./command_server";
-import { commands, window, workspace, EventEmitter, Disposable, QuickDiffProvider, Uri, ProviderResult, scm } from "vscode";
+import { CommandServer, Status, HgError } from "./command_server";
+import { commands, window, workspace, EventEmitter, Disposable, QuickDiffProvider, Uri, ProviderResult, scm, SourceControlResourceGroup, SourceControlResourceState, SourceControlResourceDecorations } from "vscode";
 import { DisposableLike } from "./util";
 import * as path from 'path';
 import { DocumentProvider } from "./document_provider";
 
 const localize = nls.loadMessageBundle();
 
-export class Model implements DisposableLike, QuickDiffProvider {
+export class Model implements DisposableLike, QuickDiffProvider { //TODO: can't open some files in unusual states (copied, renamed, untracked)
 	private root: string;
 	private readonly documentProvider: DocumentProvider = new DocumentProvider(this);
 
@@ -21,9 +21,10 @@ export class Model implements DisposableLike, QuickDiffProvider {
 
 	private disposables: Disposable[] = [];
 
-	private static readonly EXTERNAL_CHANGE_CHECK_INTERVAL = 1000 * 10;
+	private static readonly CHANGE_CHECK_INTERVAL = 1000 * 10;
 
-	constructor(private commandServer: CommandServer) {
+	constructor(private commandServer: CommandServer, private changedFilesGroup: SourceControlResourceGroup,
+		private resourceDecorationsProvider: (status: Status) => SourceControlResourceDecorations) {
 		if (workspace.rootPath) {
 			commandServer.directory = workspace.rootPath;
 			setImmediate(this.updateRepoState.bind(this));
@@ -50,7 +51,7 @@ export class Model implements DisposableLike, QuickDiffProvider {
 
 	async commit(message: string): Promise<void> {
 		await this.commandServer.commit(message);
-		this.checkRevision();
+		this.checkStatusAndRevision();
 	}
 
 	private async updateRepoState(): Promise<void> {
@@ -59,6 +60,7 @@ export class Model implements DisposableLike, QuickDiffProvider {
 			this.root = await this.commandServer.root();
 			this.repoState = RepoState.Present;
 		} catch (err) {
+			if (!(err instanceof HgError)) throw err;
 			this.repoState = RepoState.NoRepo;
 		}
 	}
@@ -72,9 +74,32 @@ export class Model implements DisposableLike, QuickDiffProvider {
 				this.lastRetrievedRevision = revision;
 			}
 		} catch (err) {
+			if (!(err instanceof HgError)) throw err;
 			this.updateRepoState();
 		}
 	}
+
+	private async checkStatus(): Promise<void> {
+		const statusMap = await this.commandServer.status();
+		const trackedFiles: SourceControlResourceState[] = [];
+		const untrackedFiles: SourceControlResourceState[] = [];
+
+		for (const [filePath, status] of statusMap) {
+			const resourceUri = Uri.file(path.join(this.root, filePath));
+			const state = { resourceUri, decorations: this.resourceDecorationsProvider(status) };
+			(status == Status.Untracked ? untrackedFiles : trackedFiles).push(state);
+		}
+		const stateComparator = (a: SourceControlResourceState, b: SourceControlResourceState) => a.resourceUri.path.localeCompare(b.resourceUri.path);
+		trackedFiles.sort(stateComparator);
+		untrackedFiles.sort(stateComparator);
+
+		this.changedFilesGroup.resourceStates = [...trackedFiles, ...untrackedFiles];
+	}
+
+	private async checkStatusAndRevision(): Promise<void> {
+		await this.checkRevision();
+		await this.checkStatus();
+	};
 
 	private set repoState(repoState: RepoState) {
 		if (repoState == this._repoState) return;
@@ -87,7 +112,8 @@ export class Model implements DisposableLike, QuickDiffProvider {
 				}
 				break;
 			case RepoState.Present:
-				if (!this.changeWatcher) this.changeWatcher = setInterval(this.checkRevision.bind(this), Model.EXTERNAL_CHANGE_CHECK_INTERVAL);
+				this.checkStatusAndRevision();
+				if (!this.changeWatcher) this.changeWatcher = setInterval(this.checkStatusAndRevision.bind(this), Model.CHANGE_CHECK_INTERVAL);
 				break;
 		}
 

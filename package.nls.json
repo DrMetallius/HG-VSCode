@@ -12,6 +12,8 @@
 
 	"status.cloning": "Cloning Mercurial repository...",
 
+	"resourceGroup.changes": "Changes",
+
 	"msg.recommendedVersion": "You seem to have Mercurial {0} installed. The plugin works best with Mercurial >= 4.0.0",
 	"msg.recommendedVersionChoiceUpdate": "Update Mercurial",
 	"msg.commandErrorChoiceOpenLog": "Open Mercurial Log",
