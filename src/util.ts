@@ -48,3 +48,11 @@ export async function mkdirs(path: string, mode?: number): Promise<void> {
 export function trimTrailingNewLine(str: string) {
 	return !str.endsWith("\n") ? str : str.substring(0, str.length - 1);
 }
+
+export function assertNonEmptyResult<T extends any[], R>(fn: (T) => R | undefined | null): (T) => R {
+	return (args) => {
+		const result = fn(args);
+		if (result === null || result === undefined) throw new Error("Result is null or undefined");
+		return result;
+	};
+}

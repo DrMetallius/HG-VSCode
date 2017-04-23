@@ -270,8 +270,27 @@ export class CommandServer implements DisposableLike {
 		await this.scheduleCommand('init');
 	}
 
-	async status(): Promise<void> {
-		await this.scheduleCommand('status');
+	async status(): Promise<Map<string, Status>> {
+		const statusOutput = JSON.parse(await this.scheduleCommand('status', '-C', '-T', 'json'));
+		const statusMap = new Map<string, Status>();
+
+		const copiedOrRemovedFiles = new Map<string, string>();
+		for (const {copy, path, status} of statusOutput) {
+			if (copy) {
+				copiedOrRemovedFiles.set(path, copy);
+			} else {
+				const fileStatus = STATUS_IDS.get(status);
+				if (fileStatus === undefined) throw new Error(`Unknown status id: ${status}`);
+				statusMap.set(path, fileStatus);
+			}
+		}
+
+		for (const [path, copy] of copiedOrRemovedFiles) {
+			const copyStatus = statusMap.get(copy);
+			statusMap.set(path, copyStatus == Status.Deleted ? Status.Renamed : Status.Copied);
+		}
+
+		return statusMap;
 	}
 
 	async root(): Promise<string> {
@@ -328,10 +347,10 @@ class InputRequestMessage {
 }
 
 class ScheduledCommand {
-	resolve: Function;
-	reject: Function;
-	command: string;
-	args: string[];
+	readonly resolve: Function;
+	readonly reject: Function;
+	readonly command: string;
+	readonly args: string[];
 }
 
 interface HgErrorData {
@@ -342,10 +361,10 @@ interface HgErrorData {
 }
 
 export class HgError {
-	error?: Error;
-	message: string;
-	returnCode?: number;
-	command: string;
+	readonly error?: Error;
+	readonly message: string;
+	readonly returnCode?: number;
+	readonly command: string;
 
 	constructor(data: HgErrorData) {
 		if (data.error) {
@@ -360,3 +379,20 @@ export class HgError {
 		this.command = data.command;
 	}
 }
+
+export enum Status {
+	Added,
+	Copied,
+	Deleted,
+	Modified,
+	Renamed,
+	Untracked
+}
+
+const STATUS_IDS = new Map<string, Status>([
+	["A", Status.Added],
+	["!", Status.Deleted],
+	["R", Status.Deleted],
+	["M", Status.Modified],
+	["?", Status.Untracked]
+]);
