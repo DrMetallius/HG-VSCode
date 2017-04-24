@@ -4,7 +4,7 @@ import * as nls from 'vscode-nls';
 import * as os from 'os';
 import * as path from 'path';
 import * as cp from 'child_process';
-import { window, Uri, commands, Disposable, OutputChannel, scm } from "vscode";
+import { window, Uri, commands, Disposable, OutputChannel, scm, workspace } from "vscode";
 import { HgError, CommandServer } from "./command_server";
 import { mkdirs, DisposableLike } from "./util";
 import { Model } from "./model";
@@ -83,7 +83,7 @@ export class CommandCenter implements DisposableLike {
 			message = input;
 		}
 
-		window.visibleTextEditors.forEach(editor => editor.document.save());
+		await workspace.saveAll();
 		await this.model.commit(message);
 		scm.inputBox.value = "";
 	}
