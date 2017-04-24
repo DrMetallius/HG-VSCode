@@ -22,12 +22,12 @@ export class DocumentProvider implements TextDocumentContentProvider {
     static toHgUri(uri: Uri): Uri {
         return new Uri().with({
             scheme: DocumentProvider.URI_SCHEME,
-            path: uri.path + DocumentProvider.URI_FILE_EXT
+            path: uri.path
         });
     }
 
     static getPathFromHgUri(uri: Uri): string {
-        return uri.fsPath.substring(0, uri.fsPath.length - DocumentProvider.URI_FILE_EXT.length);
+        return uri.fsPath;
     }
 
 	constructor(private model: Model) {

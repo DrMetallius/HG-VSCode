@@ -2,6 +2,8 @@
 	"command.clone": "Clone",
 	"command.init": "Initialize Repository",
 	"command.commit": "Commit Changes",
+	"command.open": "Open",
+	"command.compare": "Compare",
 
 	"config.enabled": "Whether Mercurial is enabled",
 
