@@ -84,11 +84,33 @@ export class Model implements DisposableLike, QuickDiffProvider { //TODO: can't 
 		const trackedFiles: SourceControlResourceState[] = [];
 		const untrackedFiles: SourceControlResourceState[] = [];
 
-		for (const [filePath, status] of statusMap) {
+		for (const [filePath, {status, originalPath}] of statusMap) {
 			const resourceUri = Uri.file(path.join(this.root, filePath));
-			const state = { resourceUri, decorations: this.resourceDecorationsProvider(status) };
+
+			let command;
+			switch (status) {
+				case Status.Deleted:
+					command = undefined;
+					break;
+				case Status.Added:
+				case Status.Untracked:
+					command = {title: localize("command.open", "Open"), command: "vscode.open", arguments: [resourceUri]};
+					break;
+				case Status.Copied:
+				case Status.Renamed:
+				case Status.Modified:
+					const title = path.basename(resourceUri.fsPath);
+					let originalResourceUri = DocumentProvider.toHgUri(originalPath ? Uri.file(path.join(this.root, originalPath)) : resourceUri);
+					command = {title: localize("command.compare", "Compare"), command: 'vscode.diff', arguments: [originalResourceUri, resourceUri, title]};
+					break;
+				default:
+					throw new Error(`Unknown status: ${status}`);
+			}
+
+			const state = { resourceUri, command, decorations: this.resourceDecorationsProvider(status) };
 			(status == Status.Untracked ? untrackedFiles : trackedFiles).push(state);
 		}
+
 		const stateComparator = (a: SourceControlResourceState, b: SourceControlResourceState) => a.resourceUri.path.localeCompare(b.resourceUri.path);
 		trackedFiles.sort(stateComparator);
 		untrackedFiles.sort(stateComparator);
@@ -99,7 +121,7 @@ export class Model implements DisposableLike, QuickDiffProvider { //TODO: can't 
 	private async checkStatusAndRevision(): Promise<void> {
 		await this.checkRevision();
 		await this.checkStatus();
-	};
+	}
 
 	private set repoState(repoState: RepoState) {
 		if (repoState == this._repoState) return;

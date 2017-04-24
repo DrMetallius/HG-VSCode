@@ -270,9 +270,9 @@ export class CommandServer implements DisposableLike {
 		await this.scheduleCommand('init');
 	}
 
-	async status(): Promise<Map<string, Status>> {
+	async status(): Promise<Map<string, FileState>> {
 		const statusOutput = JSON.parse(await this.scheduleCommand('status', '-C', '-T', 'json'));
-		const statusMap = new Map<string, Status>();
+		const stateMap = new Map<string, FileState>();
 
 		const copiedOrRemovedFiles = new Map<string, string>();
 		for (const {copy, path, status} of statusOutput) {
@@ -281,16 +281,17 @@ export class CommandServer implements DisposableLike {
 			} else {
 				const fileStatus = STATUS_IDS.get(status);
 				if (fileStatus === undefined) throw new Error(`Unknown status id: ${status}`);
-				statusMap.set(path, fileStatus);
+				stateMap.set(path, {status: fileStatus});
 			}
 		}
 
 		for (const [path, copy] of copiedOrRemovedFiles) {
-			const copyStatus = statusMap.get(copy);
-			statusMap.set(path, copyStatus == Status.Deleted ? Status.Renamed : Status.Copied);
+			const copyState = stateMap.get(copy);
+			const status = copyState && copyState.status == Status.Deleted ? Status.Renamed : Status.Copied;
+			stateMap.set(path, {status, originalPath: copy});
 		}
 
-		return statusMap;
+		return stateMap;
 	}
 
 	async root(): Promise<string> {
@@ -396,3 +397,8 @@ const STATUS_IDS = new Map<string, Status>([
 	["M", Status.Modified],
 	["?", Status.Untracked]
 ]);
+
+export interface FileState {
+	status: Status,
+	originalPath?: string
+}
