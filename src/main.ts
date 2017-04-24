@@ -18,7 +18,7 @@ export function activate(context: ExtensionContext): any { //TODO: update line e
 		.catch(err => console.error(err));
 }
 
-async function init(context: ExtensionContext, disposables: Disposable[]): Promise<void> { //TODO: add opening files on click, asking about untracked on commit, partial commit, status bar, pull, push, revert, branch switching
+async function init(context: ExtensionContext, disposables: Disposable[]): Promise<void> { //TODO: asking about untracked on commit, partial commit, status bar, pull, push, revert, branch switching, try in a subfolder of root
 	const config = workspace.getConfiguration('hg');
 	const enabled = config.get<boolean>('enabled') === true;
 	if (!enabled) return;
