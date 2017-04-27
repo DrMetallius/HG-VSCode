@@ -287,7 +287,7 @@ export class CommandServer implements DisposableLike {
 
 		for (const [path, copy] of copiedOrRemovedFiles) {
 			const copyState = stateMap.get(copy);
-			const status = copyState && copyState.status == Status.Deleted ? Status.Renamed : Status.Copied;
+			const status = copyState && (copyState.status == Status.Deleted || copyState.status == Status.Missing) ? Status.Renamed : Status.Copied;
 			stateMap.set(path, {status, originalPath: copy});
 		}
 
@@ -385,6 +385,7 @@ export enum Status {
 	Added,
 	Copied,
 	Deleted,
+	Missing,
 	Modified,
 	Renamed,
 	Untracked
@@ -392,7 +393,7 @@ export enum Status {
 
 const STATUS_IDS = new Map<string, Status>([
 	["A", Status.Added],
-	["!", Status.Deleted],
+	["!", Status.Missing],
 	["R", Status.Deleted],
 	["M", Status.Modified],
 	["?", Status.Untracked]

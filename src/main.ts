@@ -18,7 +18,7 @@ export function activate(context: ExtensionContext): any { //TODO: update line e
 		.catch(err => console.error(err));
 }
 
-async function init(context: ExtensionContext, disposables: Disposable[]): Promise<void> { //TODO: asking about untracked on commit, partial commit, status bar, pull, push, revert, branch switching, try in a subfolder of root
+async function init(context: ExtensionContext, disposables: Disposable[]): Promise<void> { //TODO: add a status for missing files, asking about untracked on commit, partial commit, status bar, pull, push, revert, branch switching, try in a subfolder of root
 	const config = workspace.getConfiguration('hg');
 	const enabled = config.get<boolean>('enabled') === true;
 	if (!enabled) return;
@@ -75,6 +75,7 @@ const STATUS_ICONS = new Map<Status, SourceControlResourceDecorations>();
 		[Status.Added, "status-added.svg"],
 		[Status.Copied, "status-copied.svg"],
 		[Status.Deleted, "status-deleted.svg"],
+		[Status.Missing, "status-missing.svg"],
 		[Status.Modified, "status-modified.svg"],
 		[Status.Renamed, "status-renamed.svg"],
 		[Status.Untracked, "status-untracked.svg"]
@@ -83,6 +84,6 @@ const STATUS_ICONS = new Map<Status, SourceControlResourceDecorations>();
 	for (const [status, name] of iconNames) {
 		const light: SourceControlResourceThemableDecorations = {iconPath: Uri.file(path.join(iconPathRoot, "light", name))};
 		const dark: SourceControlResourceThemableDecorations = {iconPath: Uri.file(path.join(iconPathRoot, "dark", name))};
-		STATUS_ICONS.set(status, {dark, light, strikeThrough: status == Status.Deleted});
+		STATUS_ICONS.set(status, {dark, light, strikeThrough: status == Status.Deleted || status == Status.Missing});
 	};
 }

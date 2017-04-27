@@ -90,6 +90,7 @@ export class Model implements DisposableLike, QuickDiffProvider { //TODO: can't 
 			let command;
 			switch (status) {
 				case Status.Deleted:
+				case Status.Missing:
 					command = undefined;
 					break;
 				case Status.Added:
