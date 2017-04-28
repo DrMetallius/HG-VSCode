@@ -138,7 +138,7 @@ export class CommandServer implements DisposableLike {
 
 	private scheduleCommand(command: string, ...args: string[]): Promise<string> {
 		return new Promise((resolve, reject) => {
-			this.commandQueue.push({resolve, reject, command, args});
+			this.commandQueue.push({ resolve, reject, command, args });
 			if (!this.commandExecutionInProgress) this.executeNextCommand();
 		});
 	}
@@ -156,7 +156,7 @@ export class CommandServer implements DisposableLike {
 			this.started = true;
 		}
 
-		let {resolve: resolveCommand, reject: rejectCommand, command, args} = scheduledCommand;
+		let { resolve: resolveCommand, reject: rejectCommand, command, args } = scheduledCommand;
 
 		const extendedArgs = args;
 		if (this.directory) extendedArgs.unshift("--cwd", this.directory);
@@ -275,20 +275,20 @@ export class CommandServer implements DisposableLike {
 		const stateMap = new Map<string, FileState>();
 
 		const copiedOrRemovedFiles = new Map<string, string>();
-		for (const {copy, path, status} of statusOutput) {
+		for (const { copy, path, status } of statusOutput) {
 			if (copy) {
 				copiedOrRemovedFiles.set(path, copy);
 			} else {
 				const fileStatus = STATUS_IDS.get(status);
 				if (fileStatus === undefined) throw new Error(`Unknown status id: ${status}`);
-				stateMap.set(path, {status: fileStatus});
+				stateMap.set(path, { status: fileStatus });
 			}
 		}
 
 		for (const [path, copy] of copiedOrRemovedFiles) {
 			const copyState = stateMap.get(copy);
 			const status = copyState && (copyState.status == Status.Deleted || copyState.status == Status.Missing) ? Status.Renamed : Status.Copied;
-			stateMap.set(path, {status, originalPath: copy});
+			stateMap.set(path, { status, originalPath: copy });
 		}
 
 		return stateMap;
@@ -299,15 +299,25 @@ export class CommandServer implements DisposableLike {
 	}
 
 	async cat(file: string): Promise<string> {
-		return await this.scheduleCommand('cat', file);
+		return this.scheduleCommand('cat', file);
 	}
 
 	async identify(): Promise<string> {
 		return trimTrailingNewLine(await this.scheduleCommand('identify'));
 	}
 
-	async commit(message: string): Promise<void> {
-		await this.scheduleCommand('commit', '-m', message);
+	async commit(message: string, addRemove: boolean): Promise<void> {
+		const additionalArgs: string[] = [];
+		if (addRemove) additionalArgs.push('-A');
+		await this.scheduleCommand('commit', '-m', message, ...additionalArgs);
+	}
+
+	async add(): Promise<void> {
+		await this.scheduleCommand('add');
+	}
+
+	async forget(...files: string[]): Promise<void> {
+		await this.scheduleCommand('forget', ...files);
 	}
 
 	dispose(): void {

@@ -22,6 +22,11 @@
 	"msg.commandError": "Error when calling {0}",
 	"msg.openCloned": "Would you like to open the cloned repository?",
 	"msg.openClonedChoiceOpen": "Open Repository",
+	"msg.commitUntrackedFiles": "Commit untracked files?",
+	"msg.commitUntrackedFilesChoiceAdd": "Add",
+	"msg.removeMissingFiles": "Remove missing files?",
+	"msg.removeMissingFilesRemove": "Remove",
+	"msg.choiceSkip": "Skip",
 
 	"prompt.repositoryUrl": "Repository URL",
 	"prompt.targetDirectory": "Target Directory",

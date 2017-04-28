@@ -4,7 +4,7 @@ import * as nls from 'vscode-nls';
 import * as os from 'os';
 import * as path from 'path';
 import * as cp from 'child_process';
-import { window, Uri, commands, Disposable, OutputChannel, scm, workspace } from "vscode";
+import { window, Uri, commands, Disposable, OutputChannel, scm, workspace, MessageItem } from "vscode";
 import { HgError, CommandServer } from "./command_server";
 import { mkdirs, DisposableLike } from "./util";
 import { Model } from "./model";
@@ -18,7 +18,7 @@ export class CommandCenter implements DisposableLike {
 		[this.init, "hg.init"],
 		[this.commit, "hg.commit"]
 	]);
-	
+
 	constructor(private commandServer: CommandServer, private model: Model, private outputChannel: OutputChannel) {
 		for (let [commandFunction, cmdId] of this.commandIdMap) {
 			const wrappedCommand = async (...args) => {
@@ -83,8 +83,33 @@ export class CommandCenter implements DisposableLike {
 			message = input;
 		}
 
+		const itemAdd: MessageItem = { title: localize("msg.commitUntrackedFilesChoiceAdd", "Add"), isCloseAffordance: false };
+		const itemRemove: MessageItem = { title: localize("msg.removeMissingFilesRemove", "Remove"), isCloseAffordance: false };
+		const itemSkip: MessageItem = { title: localize("msg.choiceSkip", "Skip"), isCloseAffordance: true };
+
+		let addUntracked = false;
+		if (this.model.hasUntrackedFiles) {
+			const addItemsChoice = await window.showInformationMessage(localize("msg.commitUntrackedFiles", "Add untracked files?"), itemAdd, itemSkip);
+			addUntracked = addItemsChoice == itemAdd;
+		}
+
+		let removeMissing = false;
+		if (this.model.hasMissingFiles) {
+			const removeItemsChoice = await window.showInformationMessage(localize("msg.removeMissingFiles", "Remove missing files?"), itemRemove, itemSkip);
+			removeMissing = removeItemsChoice == itemRemove;
+		}
+
+		let addRemove = false;
+		if (addUntracked && removeMissing || addUntracked && !this.model.hasMissingFiles || removeMissing && !this.model.hasUntrackedFiles) {
+			addRemove = true;
+		} else if (addUntracked) {
+			await this.model.add();
+		} else if (removeMissing) {
+			await this.model.forget();
+		}
+
 		await workspace.saveAll();
-		await this.model.commit(message);
+		await this.model.commit(message, addRemove);
 		scm.inputBox.value = "";
 	}
 

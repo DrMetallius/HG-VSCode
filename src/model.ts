@@ -18,6 +18,8 @@ export class Model implements DisposableLike, QuickDiffProvider { //TODO: can't 
 
 	private changeWatcher: NodeJS.Timer | null;
 	private lastRetrievedRevision: string;
+	private _hasUntrackedFiles: boolean;
+	private missingFiles: string[];
 
 	private disposables: Disposable[] = [];
 
@@ -49,8 +51,18 @@ export class Model implements DisposableLike, QuickDiffProvider { //TODO: can't 
 		return await this.commandServer.cat(fsPath);
 	}
 
-	async commit(message: string): Promise<void> {
-		await this.commandServer.commit(message);
+	async commit(message: string, addRemove: boolean): Promise<void> {
+		await this.commandServer.commit(message, addRemove);
+		this.checkStatusAndRevision();
+	}
+
+	async add(): Promise<void> {
+		await this.commandServer.add();
+		this.checkStatusAndRevision();
+	}
+
+	async forget(): Promise<void> {
+		await this.commandServer.forget(...this.missingFiles);
 		this.checkStatusAndRevision();
 	}
 
@@ -84,7 +96,7 @@ export class Model implements DisposableLike, QuickDiffProvider { //TODO: can't 
 		const trackedFiles: SourceControlResourceState[] = [];
 		const untrackedFiles: SourceControlResourceState[] = [];
 
-		for (const [filePath, {status, originalPath}] of statusMap) {
+		for (const [filePath, { status, originalPath }] of statusMap) {
 			const resourceUri = Uri.file(path.join(this.root, filePath));
 
 			let command;
@@ -95,14 +107,14 @@ export class Model implements DisposableLike, QuickDiffProvider { //TODO: can't 
 					break;
 				case Status.Added:
 				case Status.Untracked:
-					command = {title: localize("command.open", "Open"), command: "vscode.open", arguments: [resourceUri]};
+					command = { title: localize("command.open", "Open"), command: "vscode.open", arguments: [resourceUri] };
 					break;
 				case Status.Copied:
 				case Status.Renamed:
 				case Status.Modified:
 					const title = path.basename(resourceUri.fsPath);
 					let originalResourceUri = DocumentProvider.toHgUri(originalPath ? Uri.file(path.join(this.root, originalPath)) : resourceUri);
-					command = {title: localize("command.compare", "Compare"), command: 'vscode.diff', arguments: [originalResourceUri, resourceUri, title]};
+					command = { title: localize("command.compare", "Compare"), command: 'vscode.diff', arguments: [originalResourceUri, resourceUri, title] };
 					break;
 				default:
 					throw new Error(`Unknown status: ${status}`);
@@ -117,6 +129,20 @@ export class Model implements DisposableLike, QuickDiffProvider { //TODO: can't 
 		untrackedFiles.sort(stateComparator);
 
 		this.changedFilesGroup.resourceStates = [...trackedFiles, ...untrackedFiles];
+
+		this._hasUntrackedFiles = false;
+		this.missingFiles = [];
+
+		for (const [filePath, { status }] of statusMap) {
+			switch (status) {
+				case Status.Untracked:
+					this._hasUntrackedFiles = true;
+					break;
+				case Status.Missing:
+					this.missingFiles.push(filePath);
+					break;
+			}
+		}
 	}
 
 	private async checkStatusAndRevision(): Promise<void> {
@@ -142,6 +168,14 @@ export class Model implements DisposableLike, QuickDiffProvider { //TODO: can't 
 
 		this._repoState = repoState;
 		this.repoStateChangeEmitter.fire(repoState);
+	}
+
+	get hasUntrackedFiles() {
+		return this._hasUntrackedFiles;
+	}
+
+	get hasMissingFiles() {
+		return this.missingFiles.length > 0;
 	}
 
 	provideOriginalResource(uri: Uri): ProviderResult<Uri> {
